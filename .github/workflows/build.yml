@@ -1,0 +1,38 @@
+name: Build & Push Trust Registry Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      trust_registry_version:
+        description: "Trust Registry version"
+        required: true
+        default: "0.8.0"
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/trust-registry
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          build-args: TRUST_REGISTRY_VERSION=${{ inputs.trust_registry_version }}
+          tags: |
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ inputs.trust_registry_version }}
+            ghcr.io/${{ env.IMAGE_NAME }}:latest
