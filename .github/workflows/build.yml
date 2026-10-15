@@ -7,6 +7,10 @@ on:
         description: "Trust Registry version"
         required: true
         default: "0.8.0"
+      channel:
+        description: "Moving tag to add (latest, nightly or main); empty for the immutable tag only"
+        required: false
+        default: ""
 
 env:
   REGISTRY: ghcr.io
@@ -28,11 +32,26 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # The segment is the immutable tag, always pushed. The channel is the
+      # moving tag for the source that was built, and is added only when
+      # build-release.sh passes one: a tagged build moves latest, a nightly
+      # build moves nightly, a main build moves main, and a feature-branch
+      # build moves nothing.
+      - id: tags
+        env:
+          IMAGE: ghcr.io/${{ env.IMAGE_NAME }}
+          VERSION: ${{ inputs.trust_registry_version }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          tags="${IMAGE}:${VERSION}"
+          if [ -n "$CHANNEL" ]; then
+            tags="${tags},${IMAGE}:${CHANNEL}"
+          fi
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
+
       - uses: docker/build-push-action@v7
         with:
           context: .
           push: true
           build-args: TRUST_REGISTRY_VERSION=${{ inputs.trust_registry_version }}
-          tags: |
-            ghcr.io/${{ env.IMAGE_NAME }}:${{ inputs.trust_registry_version }}
-            ghcr.io/${{ env.IMAGE_NAME }}:latest
+          tags: ${{ steps.tags.outputs.tags }}
